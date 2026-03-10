@@ -2,17 +2,20 @@ from flask import Flask, render_template_string, request
 import sqlite3
 import pickle
 from datetime import datetime, time
+import pytz
 import os
 
 app = Flask(__name__)
 HOSTEL_CAPACITY = 250
+
+# ---------------- TIMEZONE ---------------- #
+IST = pytz.timezone("Asia/Kolkata")
 
 # ---------------- DATABASE ---------------- #
 def init_db():
     conn = sqlite3.connect("mess.db", timeout=10)
     conn.execute("PRAGMA journal_mode=WAL")
     c = conn.cursor()
-
     # Scans table
     c.execute("""
     CREATE TABLE IF NOT EXISTS scans(
@@ -32,13 +35,11 @@ def init_db():
         to_date DATE
     )
     """)
-
     # Keep DB small
     c.execute("""
     DELETE FROM scans
     WHERE timestamp < datetime('now','-7 days')
     """)
-
     conn.commit()
     conn.close()
 
@@ -53,76 +54,75 @@ rates = {0:0.20, 1:0.30, 2:0.25}
 
 # ---------------- MEAL DETECTION ---------------- #
 def current_meal():
-    now = datetime.now().time()
+    now = datetime.now(IST).time()
     if time(7,0) <= now < time(10,0):
         return 0, "Breakfast"
-    elif time(12,0) <= now < time(16,0):
+    elif time(12,0) <= now < time(16,30):
         return 1, "Lunch"
-    elif time(19,30) <= now < time(23,0):
+    elif time(19,30) <= now < time(22,30):
         return 2, "Dinner"
     else:
         return None, None
 
 # ---------------- ATTENDANCE ---------------- #
 def get_today_count(meal_name):
-    conn = sqlite3.connect("mess.db",timeout=10)
+    conn = sqlite3.connect("mess.db", timeout=10)
     c = conn.cursor()
     c.execute("""
     SELECT COUNT(*) FROM scans
     WHERE meal=? AND DATE(timestamp)=DATE('now')
-    """,(meal_name,))
+    """, (meal_name,))
     count = c.fetchone()[0]
     conn.close()
     return count
 
 def get_yesterday_meal_count(meal_name):
-    conn = sqlite3.connect("mess.db",timeout=10)
+    conn = sqlite3.connect("mess.db", timeout=10)
     c = conn.cursor()
     c.execute("""
     SELECT COUNT(*) FROM scans
     WHERE meal=? AND DATE(timestamp)=DATE('now','-1 day')
-    """,(meal_name,))
+    """, (meal_name,))
     count = c.fetchone()[0]
     conn.close()
     return count
 
 def get_active_students():
-    conn = sqlite3.connect("mess.db",timeout=10)
+    conn = sqlite3.connect("mess.db", timeout=10)
     c = conn.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(IST).strftime("%Y-%m-%d")
     c.execute("""
     SELECT COUNT(*) FROM absentees
     WHERE from_date <= ? AND to_date >= ?
     """, (today,today))
     absent = c.fetchone()[0]
     conn.close()
-    active_students = max(0, HOSTEL_CAPACITY - absent)
-    return active_students
+    return max(0, HOSTEL_CAPACITY - absent)
 
 # ---------------- DASHBOARD ---------------- #
 @app.route("/")
 def dashboard():
     meal_index, meal_name = current_meal()
     if not meal_name:
-        now = datetime.now().strftime("%H:%M")
+        now = datetime.now(IST).strftime("%H:%M")
         return f"""
         <meta http-equiv="refresh" content="10">
         <h2>Smart Mess Dashboard</h2>
         <p>Current Time: {now}</p>
         <p>No active meal right now.</p>
         <p>Breakfast: 07:00–10:00</p>
-        <p>Lunch: 12:00–16:00</p>
-        <p>Dinner: 19:30–22:00</p>
+        <p>Lunch: 12:00–16:30</p>
+        <p>Dinner: 19:30–22:30</p>
         """
 
     live_count = get_today_count(meal_name)
     next_index = (meal_index + 1) % 3
     next_meal_name = ["Breakfast","Lunch","Dinner"][next_index]
 
-    today_idx = datetime.now().weekday()
+    today_idx = datetime.now(IST).weekday()
     is_weekend = 1 if today_idx >= 5 else 0
     is_holiday = 1 if today_idx == 6 else 0
-    day = datetime.now()
+    day = datetime.now(IST)
     week_of_month = (day.day - 1) // 7 + 1
 
     # Non-veg condition
@@ -180,7 +180,7 @@ def dashboard():
     """,
     meal_name=meal_name,
     live_count=live_count,
-    today=datetime.now().strftime("%A"),
+    today=datetime.now(IST).strftime("%A"),
     next_meal_name=next_meal_name,
     predicted_next=predicted_next,
     food_next=food_next,
@@ -199,72 +199,45 @@ def scan():
     if request.method == "POST":
         student_id = request.form.get("student_id")
         action = request.form.get("action")
+        from_date = request.form.get("from_date")
+        to_date = request.form.get("to_date")
+
         if not student_id or not action:
             return "Student ID and action required."
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        conn = sqlite3.connect("mess.db", timeout=10)
-        c = conn.cursor()
-
         if action == "in":
+            conn = sqlite3.connect("mess.db", timeout=10)
+            c = conn.cursor()
             try:
                 c.execute("INSERT INTO scans(student_id, meal) VALUES(?, ?)", (student_id, meal_name))
                 conn.commit()
                 message = f"Scan successful for {student_id}!"
             except sqlite3.IntegrityError:
                 message = f"Already scanned for {meal_name}!"
+            conn.close()
         elif action == "leave":
-            from_date = request.form.get("from_date")
-            to_date = request.form.get("to_date")
-
-            if not from_date or not to_date:
-                # default to today if dates not given
-                from_date = to_date = datetime.now().strftime("%Y-%m-%d")
-
+            # default to today if no dates
+            if not from_date: from_date = datetime.now(IST).strftime("%Y-%m-%d")
+            if not to_date: to_date = datetime.now(IST).strftime("%Y-%m-%d")
+            conn = sqlite3.connect("mess.db", timeout=10)
+            c = conn.cursor()
             c.execute("""
                 INSERT OR IGNORE INTO absentees(student_id, from_date, to_date)
                 VALUES(?, ?, ?)
             """, (student_id, from_date, to_date))
             conn.commit()
+            conn.close()
             message = f"Leave marked for {student_id} from {from_date} to {to_date}!"
         else:
-            conn.close()
             return "Invalid action."
 
-        # Correct absentee count
-        c.execute("""
-            SELECT COUNT(*) FROM absentees
-            WHERE from_date <= ? AND to_date >= ?
-        """, (today, today))
-        absent_count = c.fetchone()[0]
-
-        # Correct active students
-        c.execute("SELECT COUNT(*) FROM scans WHERE meal = ?", (meal_name,))
-        scanned_count = c.fetchone()[0]
-        active_students = max(0, HOSTEL_CAPACITY - absent_count)
-
-        # Prediction features
-        today_idx = datetime.now().weekday()
-        is_weekend = 1 if today_idx >= 5 else 0
-        is_holiday = 1 if today_idx == 6 else 0
-        day = datetime.now()
-        week_of_month = (day.day - 1) // 7 + 1
-        meal_index = ["Breakfast","Lunch","Dinner"].index(meal_name)
-        prev_count = get_today_count(meal_name)
-
-        features_next = [[
-            is_holiday,
-            is_weekend,
-            0,  # nonveg placeholder
-            week_of_month,
-            prev_count,
-            meal_index,
-            today_idx
-        ]]
+        active_students = get_active_students()
+        # simple next meal prediction
+        next_index = ["Breakfast","Lunch","Dinner"].index(meal_name)
+        features_next = [[0,0,0,0,get_today_count(meal_name),next_index,datetime.now(IST).weekday()]]
         next_meal_count = int(model.predict(features_next)[0])
         next_meal_count = max(10, min(next_meal_count, active_students))
 
-        conn.close()
         return f"{message} <br>Active Students: {active_students} <br>Predicted Next Meal: {next_meal_count} <br><a href='/scan'>Next Student</a>"
 
     return """
@@ -280,7 +253,6 @@ def scan():
     </select><br><br>
     Leave From (for multi-day leave):<br>
     <input type="date" name="from_date"><br><br>
-
     Leave To:<br>
     <input type="date" name="to_date"><br><br>
     <button type="submit">Submit</button>
@@ -292,7 +264,7 @@ def scan():
 # ---------------- LOGS ---------------- #
 @app.route("/logs")
 def logs():
-    conn = sqlite3.connect("mess.db",timeout=10)
+    conn = sqlite3.connect("mess.db", timeout=10)
     c = conn.cursor()
     c.execute("""
     SELECT student_id, meal, timestamp
@@ -302,7 +274,6 @@ def logs():
     """)
     rows = c.fetchall()
     conn.close()
-
     html = "<h2>Recent Scans</h2><table border=1>"
     html += "<tr><th>Student</th><th>Meal</th><th>Time</th></tr>"
     for r in rows:
@@ -312,5 +283,5 @@ def logs():
 
 # ---------------- RUN ---------------- #
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT",5000))
-    app.run(host="0.0.0.0",port=port,debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

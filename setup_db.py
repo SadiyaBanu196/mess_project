@@ -22,7 +22,7 @@ prev = 180
 
 for i in range(40):
     d = start + timedelta(days=i)
-    day = d.strftime("%A")
+    day = d.weekday()
     holiday = 1 if day=="Sunday" else 0
 
     for meal, base,idx in [("breakfast",220,0),("lunch",210,1),("dinner",200,2)]:
