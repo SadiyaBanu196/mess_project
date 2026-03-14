@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Leave Entry</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1 class="title">Student Leave Entry</h1>
+
+<div class="card">
+
+<form method="POST">
+
+<label>Student ID</label>
+<input type="text" name="student_id" required>
+
+<label>Leave From</label>
+<input type="date" name="from_date" required>
+
+<label>Leave To</label>
+<input type="date" name="to_date" required>
+
+<br>
+
+<button type="submit">Mark Leave</button>
+
+</form>
+
+</div>
+
+<div class="card nav">
+<a href="/">Back to Dashboard</a>
+</div>
+
+</div>
+
+</body>
+</html>

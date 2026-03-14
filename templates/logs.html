@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Scan Logs</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1 class="title">Recent Scan Logs</h1>
+
+<div class="card">
+
+<table border="1" width="100%">
+<tr>
+<th>Student</th>
+<th>Meal</th>
+<th>Time</th>
+</tr>
+
+{% for r in rows %}
+
+<tr>
+<td>{{r[0]}}</td>
+<td>{{r[1]}}</td>
+<td>{{r[2]}}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+<div class="card nav">
+<a href="/">Back to Dashboard</a>
+</div>
+
+</div>
+
+</body>
+
+</html>

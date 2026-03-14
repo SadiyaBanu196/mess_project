@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Scanner</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1 class="title">Student Scanner</h1>
+
+<div class="card">
+
+<form method="POST">
+
+<label>Student ID</label><br>
+<input type="text" name="student_id" required>
+
+<br><br>
+
+<button type="submit">Scan ID</button>
+
+</form>
+
+</div>
+
+<div class="card nav">
+<a href="/">Back to Dashboard</a>
+</div>
+
+</div>
+
+</body>
+</html>

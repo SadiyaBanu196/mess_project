@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Mess Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta http-equiv="refresh" content="5">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1 class="title">Smart Hostel Mess Dashboard</h1>
+
+<div class="card">
+<p>Current Meal: <span class="stat">{{meal_name}}</span></p>
+<p>Hostel Capacity: {{capacity}}</p>
+<p>Active Students: {{active_students}}</p>
+<p>Live Attendance: <span class="stat">{{live_count}}</span></p>
+</div>
+
+<div class="card">
+<h3>Next Meal Prediction</h3>
+
+<p>Next Meal: <b>{{next_meal_name}}</b></p>
+<p>Predicted Students: <span class="stat">{{predicted_next}}</span></p>
+
+{% if next_meal_name == "Breakfast" %}
+
+<form method="POST">
+<label>Select Breakfast Menu</label><br>
+
+<select name="menu">
+{% for item in menu_list %}
+<option value="{{item}}" {% if menu==item %}selected{% endif %}>
+{{item.title()}}
+</option>
+{% endfor %}
+</select>
+
+<br><br>
+<button type="submit">Calculate</button>
+</form>
+
+{% endif %}
+
+<h3>{{food_text}}</h3>
+
+</div>
+
+<div class="card nav">
+
+<a href="/scan">Open Scanner</a>
+<a href="/leave">Mark Leave</a>
+<a href="/logs">View Logs</a>
+
+</div>
+
+</div>
+
+</body>
+</html>
