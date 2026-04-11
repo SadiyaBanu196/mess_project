@@ -49,7 +49,7 @@ init_db()
 
 # ---------------- MODEL ---------------- #
 
-model = pickle.load(open("model.pkl", "rb"))
+model = pickle.load(open(os.path.join(os.getcwd(),"model.pkl"), "rb"))
 print("Model expects features:", model.n_features_in_)
 
 # ---------------- FOOD PORTIONS ---------------- #
@@ -69,7 +69,7 @@ RICE_PER_STUDENT = 0.12
 
 def current_meal():
     now = datetime.now(IST).time()
-    if time(7,0) <= now < time(10,0):
+    if time(7,0) <= now < time(12,0):
         return 0, "Breakfast"
     elif time(12,0) <= now < time(16,30):
         return 1, "Lunch"
@@ -244,4 +244,4 @@ def logs():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT",5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
